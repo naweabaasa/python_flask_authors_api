@@ -1,0 +1,5 @@
+_pyache_/
+venv/
+.env
+.pyc
+.instances
