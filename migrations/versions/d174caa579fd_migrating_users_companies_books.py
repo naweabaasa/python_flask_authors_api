@@ -1,8 +1,8 @@
-"""Migrating users,companies,books
+"""Migrating Users, Companies, Books
 
-Revision ID: 6fa8ee611e2e
+Revision ID: d174caa579fd
 Revises: 
-Create Date: 2026-04-29 15:29:00.447193
+Create Date: 2026-05-06 16:17:53.004916
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '6fa8ee611e2e'
+revision = 'd174caa579fd'
 down_revision = None
 branch_labels = None
 depends_on = None

@@ -1,4 +1,4 @@
-_pyache_/
+_pycache_/
 venv/
 .env
 .pyc
