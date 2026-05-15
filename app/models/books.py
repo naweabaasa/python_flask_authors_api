@@ -15,7 +15,7 @@ class Book(db.Model):
     image = db.Column(db.String(255),nullable=True)
     user_id = db.Column(db.Integer,db.ForeignKey('users.id'))
     company_id = db.Column(db.Integer,db.ForeignKey('companies.id'))
-    user = db.relationship('Users',backref='books')
+    user = db.relationship('User',backref='books')
     company = db.relationship('Company',backref='books')
     created_at = db.Column(db.DateTime,default=datetime.now())
     updated_at = db.Column(db.DateTime,onupdate=datetime.now())
