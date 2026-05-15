@@ -1,9 +1,12 @@
+from webbrowser import get
+
 from flask import Blueprint, request, jsonify
-from app.status_codes import (HTTP_400_BAD_REQUEST, HTTP_409_CONFLICT, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_201_CREATED, HTTP_401_UNAUTHORIZED, HTTP_200_OK)
+from app.status_codes import (HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_403_FORBIDDEN,  HTTP_409_CONFLICT, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_201_CREATED, HTTP_401_UNAUTHORIZED, HTTP_200_OK)
 import validators
 from app.models.users import User
 from  flask_jwt_extended import create_access_token
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_refresh_token
+from app.extensions import db,bcrypt
 
 # users blueprint
 users = Blueprint('users', __name__, url_prefix='/api/v1/users')
@@ -103,6 +106,206 @@ def getAllAuthors():
         }),HTTP_200_OK
 
 
+
+    except Exception as e: 
+        return jsonify({
+            "error": str(e)
+            }), HTTP_500_INTERNAL_SERVER_ERROR
+
+
+
+
+# Get  a user by id
+@users.get('/user/<int:id>')
+@jwt_required()  # Require authentication to access this route
+def getUser(id):
+
+    try:
+        user = User.query.filter_by(id=id).first()
+
+        if not user:
+            return jsonify({"error": "User not found"}), HTTP_404_NOT_FOUND
+
+        books = []
+        companies = []
+
+        if hasattr(user, 'books'):
+            books = [{
+                'id': book.id,
+                'title': book.title,
+                'price': book.price,
+                'genre': book.genre,
+                    'price_unit': book.price_unit, 
+                    'description': book.description, 
+                    'published_date': book.published_date, 
+                    'image': book.image,
+                    'created_at': book.created_at
+                } for book in user.books]
+
+
+
+        if hasattr(user, 'companies'):
+                companies = [{
+                    'id': company.id, 
+                    'name': company.name, 
+                    'origin': company.origin, 
+                } for company in user.companies]
+               
+
+
+
+        return jsonify({
+
+                "message": "User details retrievedsuccessfully",
+                
+                "user":{
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'username': user.get_full_name(),
+                'email': user.email,
+                'contact': user.contact,
+                'type': user.user_type,
+                'created_at': user.created_at,
+                'biography': user.biography,
+                'companies': companies,
+                'books': books
+            }
+                
+        }),HTTP_200_OK
+
+
+
+    except Exception as e: 
+        return jsonify({
+            "error": str(e)
+            }), HTTP_500_INTERNAL_SERVER_ERROR
+    
+
+# update user details
+# route function takes in the path for the url
+# put updates the entire details
+# Patch updates a particular attribuite
+@users.route('/edit/<int:id>', methods=['PUT', 'PATCH'])
+@jwt_required()  # Require authentication to access this route
+def updateUserDetails(id):
+
+
+    try:
+        current_user = get_jwt_identity()  # Get the identity of the currently logged in user since we have protected the route
+        loggedInUser = User.query.filter_by(id=current_user).first()        # Stores the id
+
+        # get user by id
+        user = User.query.filter_by(id=id).first()
+
+        if not user:
+            return jsonify({"error": "User not found"}), HTTP_404_NOT_FOUND
+        
+        elif loggedInUser.user_type != 'admin' and user.id != current_user:
+            return jsonify({"error": "You are not authorized to update the user details"}), HTTP_403_FORBIDDEN
+        
+        else:
+            data = request.get_json(silent=True)
+            print(data)
+
+            if data is None:
+             return jsonify({
+                "error": "No input data providedJSON data received"
+            }), HTTP_400_BAD_REQUEST
+        
+            first_name = data.get('first_name', user.first_name)  
+            last_name = data.get('last_name', user.last_name)
+            email = data.get('email', user.email)
+            contact = data.get('contact', user.contact)
+            image = data.get('image', user.image)
+            biography = data.get('biography', user.biography)
+            user_type = data.get('user_type', user.user_type)
+          
+            if "password" in request.json:
+                hashed_password = bcrypt.generate_password_hash(request.json.get('password'))    # ensures that the created password is hashed
+                user.password = hashed_password
+
+
+            if email != user.email and User.query.filter_by(email=email).filter():
+                return jsonify({"error": "Email address already in use"}), HTTP_409_CONFLICT
+            
+            if contact != user.contact and User.query.filter_by(contact=contact).filter():
+                return jsonify({"error": "Contact number already in use"}), HTTP_409_CONFLICT
+
+# Storing variables from the request for each user property
+            user.first_name = first_name 
+            user.last_name = last_name
+            user.email = email
+            user.contact = contact
+            user.image = image
+            user.biography = biography
+            user.user_type = user_type 
+
+            db.session.commit()  # commit the changes to the database
+
+            user_name = user.get_full_name()
+
+            return jsonify({
+                "message": user_name  + "'s details have been  successfully updated",
+                "user": {
+                    'id': user.id,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'username': user.get_full_name(),
+                    'email': user.email,
+                    'contact': user.contact,
+                    'type': user.user_type,
+                    'biography': user.biography,
+                    'created_at': user.created_at
+                }
+            }), HTTP_200_OK
+
+    
+
+    except Exception as e: 
+        return jsonify({
+            "error": str(e)
+            }), HTTP_500_INTERNAL_SERVER_ERROR
+    
+
+# delete a user
+@users.route('/delete/<int:id>', methods=['DELETE'])
+@jwt_required()  # Require authentication to access this route
+def eleteUser(id):
+    
+    try:
+        current_user = get_jwt_identity()  # Get the identity of the currently logged in user since we have protected the route
+        loggedInUser = User.query.filter_by(id=current_user).first()        # Stores the id
+
+        # get user by id
+        user = User.query.filter_by(id=id).first()
+
+        if not user:
+            return jsonify({"error": "User not found"}), HTTP_404_NOT_FOUND
+        
+        elif loggedInUser.user_type != 'admin' :
+            return jsonify({"error": "You are not authorized to delete this user details"}), HTTP_403_FORBIDDEN
+        else:
+
+            # delete associated user
+            for company in user.companies:
+                db.session.delete(company)
+
+            # delete associated user
+            for book in user.books:
+                db.session.delete(book)
+
+
+            db.session.delete(user)
+            db.session.commit()  # commit the changes to the database
+
+           
+
+            return jsonify({
+                "message":  "User deleted successfully",  
+            }), HTTP_200_OK
+
+    
 
     except Exception as e: 
         return jsonify({

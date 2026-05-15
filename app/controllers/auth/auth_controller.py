@@ -116,7 +116,9 @@ def login():
                         "username": user.get_full_name(),
                         'email': user.email,
                         'access_token': access_token,
-                        'refresh_token': refresh_token
+                        'refresh_token': refresh_token,
+                        'type': user.user_type
+                        
                     },
                     'message': "You have successfully logged into your account"
                 }),HTTP_200_OK
